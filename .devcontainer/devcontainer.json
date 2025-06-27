@@ -1,0 +1,25 @@
+{
+    "name": "Python FastAPI",
+    "image": "python:3.11-slim",
+    // "extensions": [
+    //     "ms-python.python",
+    //     "ms-python.vscode-pylance",
+    //     "ms-python.black-formatter",
+    //     "ms-python.isort"
+    // ],
+    // "customizations": {
+    //     "vscode": {
+    //         "extensions": [
+    //             "ms-python.python",
+    //             "ms-python.vscode-pylance",
+    //             "ms-python.black-formatter",
+    //             "ms-python.isort"
+    //         ]
+    //     }
+    // },
+    "forwardPorts": [
+        8000
+    ],
+    "postCreateCommand": "pip install -r requirements.txt",
+    "remoteUser": "root"
+}
