@@ -1,31 +1,97 @@
 services:
-  fastapi:
+  # FastAPI application
+  app:
     build: .
     ports:
       - "8000:8000"
-    volumes:
-      - .:/app
     environment:
       - RADICALE_URL=http://radicale:5232
+      - RADICALE_USERNAME=admin
+      - RADICALE_PASSWORD=admin
+      - WEBHOOK_BASE_URL= https://b67a-129-126-176-54.ngrok-free.app
+      - DEFAULT_RADICALE_USER=admin
+      - DEFAULT_CALENDAR_NAME=default
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    volumes:
+      - ./:/app
+      - ./credentials.json:/app/credentials.json:ro
+      - ./token.json:/app/token.json:rw
+      - ./sync_tokens.json:/app/sync_tokens.json:rw
     depends_on:
       - radicale
-    networks:
-      - app-network
+      - redis
+    command: python main.py
 
+  # Celery worker for background tasks
+  celery-worker:
+    build: .
+    environment:
+      - RADICALE_URL=http://radicale:5232
+      - RADICALE_USERNAME=admin
+      - RADICALE_PASSWORD=admin
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    volumes:
+      - ./:/app
+      - ./credentials.json:/app/credentials.json:ro
+      - ./token.json:/app/token.json:rw
+      - ./sync_tokens.json:/app/sync_tokens.json:rw
+    depends_on:
+      - radicale
+      - redis
+    command: celery -A celery_app worker --loglevel=info
+
+  # Celery beat for scheduled tasks (optional)
+  celery-beat:
+    build: .
+    environment:
+      - RADICALE_URL=http://radicale:5232
+      - RADICALE_USERNAME=admin
+      - RADICALE_PASSWORD=admin
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    volumes:
+      - ./:/app
+      - ./credentials.json:/app/credentials.json:ro
+      - ./token.json:/app/token.json:rw
+      - ./sync_tokens.json:/app/sync_tokens.json:rw
+    depends_on:
+      - radicale
+      - redis
+    command: celery -A celery_app beat --loglevel=info
+
+  # Redis for Celery
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  # Radicale server
   radicale:
-    image: tomsquest/docker-radicale:latest
+    image: python:3.9-slim
     ports:
       - "5232:5232"
-    volumes:
-      - radicale_data:/data
-      - ./radicale_config:/etc/radicale
     environment:
-      - RADICALE_CONFIG_FILE=/etc/radicale/config
-    networks:
-      - app-network
+      - RADICALE_AUTH_TYPE=htpasswd
+      - RADICALE_AUTH_HTPASSWD_ENCRYPTION=bcrypt
+      - RADICALE_AUTH_HTPASSWD_FILENAME=/etc/radicale/users
+    volumes:
+      - radicale_data:/var/lib/radicale
+      - ./radicale_config:/etc/radicale
+    command: >
+      sh -c "
+        pip install radicale[bcrypt] &&
+        mkdir -p /etc/radicale &&
+        echo 'admin:admin' > /etc/radicale/users &&
+        python -m radicale --config /etc/radicale/config
+      "
 
 volumes:
   radicale_data:
+  redis_data:
 
 
 networks:

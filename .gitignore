@@ -266,3 +266,9 @@ logs/
 # OS
 .DS_Store
 Thumbs.db 
+
+# Project Specific
+sync_tokens.json
+token.json
+credentials.json
+caldav_sync_token_test_results.json
